@@ -27,6 +27,9 @@ class _MaybeParseError(Exception):
         if len(a) > 2:
             self.message = a[2]
 
+    def __getitem__(self, n):
+        return self.args[n]
+
     def __eq__(self, other):
         if other.__class__ == self.__class__:
             return (self.position, self.error) == (other.position, other.error)
@@ -59,7 +62,7 @@ class _MaybeParseError(Exception):
         Return a pretty string containing error info about string parsing failure.
         """
         reason = self.formatReason()
-        if not isinstance(input, basestring):
+        if not isinstance(input, str):
             return ("Parse error at input %s: %s\n" % (input, reason))
         lines = input.split('\n')
         counter = 0
@@ -102,7 +105,15 @@ def joinErrors(errors):
     """
     Return the error from the branch that matched the most of the input.
     """
-    errors.sort(reverse=True, key=operator.itemgetter(0))
+    # This next statement doesn't work on python3 as None
+    # is not sortable with respect to int.
+    #errors.sort(reverse=True, key=operator.itemgetter(0))
+    def noneSorter(o):
+        r = o[0]
+        if r == None:
+            return 0
+        return r
+    errors.sort(reverse=True, key=noneSorter)
     results = set()
     pos = errors[0][0]
     for err in errors:
@@ -116,7 +127,6 @@ def joinErrors(errors):
 
     return [pos, list(results)]
 
-
 class character(str):
     """
     Type to allow distinguishing characters from strings.
@@ -129,7 +139,7 @@ class character(str):
         """
         raise TypeError("Characters are not iterable")
 
-class unicodeCharacter(unicode):
+class unicodeCharacter(str):
     """
     Type to distinguish characters from Unicode strings.
     """
@@ -151,7 +161,7 @@ class InputStream(object):
         """
         if isinstance(iterable, str):
             data = [character(c) for c in iterable]
-        elif isinstance(iterable, unicode):
+        elif isinstance(iterable, str):
             data = [unicodeCharacter(c) for c in iterable]
         else:
             data = list(iterable)
@@ -312,7 +322,7 @@ class OMetaBase(object):
         @param args: A sequence of arguments to it.
         """
         if args:
-            if rule.func_code.co_argcount - 1 != len(args):
+            if rule.__code__.co_argcount - 1 != len(args):
                 for arg in args[::-1]:
                     self.input = ArgInput(arg, self.input)
                 return rule()
@@ -395,7 +405,8 @@ class OMetaBase(object):
                 m = self.input
                 v, _ = fn()
                 ans.append(v)
-            except _MaybeParseError as e:
+            except _MaybeParseError as ex:
+                e = ex # save the exception
                 self.input = m
                 break
         return ans, e
@@ -407,7 +418,7 @@ class OMetaBase(object):
         @param fn: A callable of no arguments.
         @param value: Number of times to call the function.
         """
-        ans = [fn()[0] for x in xrange(value)]
+        ans = [fn()[0] for x in range(value)]
         return ans, self.input.nullError() # Is this the correct return value?
 
     def _or(self, fns):
@@ -424,7 +435,8 @@ class OMetaBase(object):
                 ret, err = f()
                 errors.append(err)
                 return ret, joinErrors(errors)
-            except _MaybeParseError as e:
+            except _MaybeParseError as ex:
+                e = ex # save the exception
                 errors.append(e)
                 self.input = m
         raise _MaybeParseError(*joinErrors(errors))
@@ -452,7 +464,8 @@ class OMetaBase(object):
         while True:
             try:
                 c, e = self.input.head()
-            except EOFError as e:
+            except EOFError as ex:
+                e = ex # don't toss out the exception
                 break
             t = self.input.tail()
             if c.isspace():
@@ -600,7 +613,8 @@ class OMetaBase(object):
         while True:
             try:
                 c, e = self.rule_anything()
-            except _MaybeParseError as e:
+            except _MaybeParseError as ex:
+                e = ex # save the exception
                 endchar = None
                 break
             if c in endChars and len(stack) == 0:
@@ -612,7 +626,7 @@ class OMetaBase(object):
                     stack.append(delimiters[c])
                 elif len(stack) > 0 and c == stack[-1]:
                     stack.pop()
-                elif c in delimiters.values():
+                elif c in list(delimiters.values()):
                     raise _MaybeParseError(self.input.position,
                                            expected("Python expression"))
                 elif c in "\"'":

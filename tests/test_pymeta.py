@@ -94,7 +94,7 @@ class OMetaTestCase(unittest.TestCase):
         Input matches can be made on literal integers.
         """
         g = self.compile("stuff = 17 0x1F -2 0177")
-        self.assertEqual(g.stuff([17, 0x1f, -2, 0177]), 0177)
+        self.assertEqual(g.stuff([17, 0x1f, -2, 0o177]), 0o177)
         self.assertRaises(_MaybeParseError, g.stuff, [1, 2, 3])
 
 
@@ -264,7 +264,7 @@ class OMetaTestCase(unittest.TestCase):
         """
         g = self.compile("""
               digit = ('0' | '1' | '2'):d -> int(d)
-              foo :x = (?(x > 1) '9' | ?(x <= 1) '8'):d -> int(d)
+              foo :x = (?(int(x) > 1) '9' | ?(int(x) <= 1) '8'):d -> int(d)
               baz = digit:a foo(a):b -> [a, b]
             """)
         self.assertEqual(g.baz("18"), [1, 8])
@@ -352,10 +352,10 @@ class OMetaTestCase(unittest.TestCase):
         g = self.compile("""
         interp = ([interp:x '+' interp:y] -> x + y
                   | [interp:x '*' interp:y] -> x * y
-                  | :x ?(isinstance(x, basestring) and x.isdigit()) -> int(x))
+                  | :x ?(isinstance(x, str) and x.isdigit()) -> int(x))
         """)
         self.assertEqual(g.interp([['3', '+', ['5', '*', '2']]]), 13)
-        self.assertEqual(g.interp([[u'3', u'+', [u'5', u'*', u'2']]]), 13)
+        self.assertEqual(g.interp([['3', '+', ['5', '*', '2']]]), 13)
 
 
     def test_string_object(self):

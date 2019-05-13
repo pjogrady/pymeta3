@@ -44,8 +44,8 @@ class RuntimeTests(unittest.TestCase):
         try:
             o.rule_exactly("g")
         except _MaybeParseError as e:
-            self.assertEquals(e[1], expected(None, "g"))
-            self.assertEquals(e[0], 0)
+            self.assertEqual(e[1], expected(None, "g"))
+            self.assertEqual(e[0], 0)
         else:
             self.fail('_MaybeParseError not raised')
 
